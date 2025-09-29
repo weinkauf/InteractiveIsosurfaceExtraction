@@ -499,6 +499,10 @@ function CreateUI()
        .name("Example")
        .onChange(RefreshCube);
 
+    Settings["Show Data Values"] = VoxelValues.visible;
+    gui.add(Settings, "Show Data Values")
+       .onChange(value => {VoxelValues.visible = value; render();});
+
     Settings["ResetCamera"] = function() {controls.reset();};
     gui.add(Settings, "ResetCamera");
 
