@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Interactive Isosurface Extraction</title>
+    <style>
+        body
+        {
+            margin: 0;
+        }
+
+        #quick-help
+        {
+            position: fixed;
+            top: 1em;
+            left: 1em;
+            background: rgba(255,255,255,0.95);
+            border: 0.07em solid #ccc;
+            border-radius: 0.5em;
+            padding: 0.75em 1.2em 0.75em 1.2em;
+            color: #222;
+            max-width: 20em;
+            z-index: 1000;
+            box-shadow: 0 0.13em 0.5em rgba(0,0,0,0.08);
+            transition: box-shadow 0.2s;
+        }
+
+        #quick-help.collapsed
+        {
+            padding: 0.35em 0.9em 0.35em 0.9em;
+            max-width: 11em;
+            cursor: pointer;
+        }
+
+        #quick-help-toggle
+        {
+            position: absolute;
+            top: 0.4em;
+            right: 0.7em;
+            background: none;
+            border: none;
+            font-size: 1.1em;
+            color: #5050b9;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        #quick-help.collapsed #quick-help-content
+        {
+            display: none;
+        }
+
+        #quick-help h3
+        {
+            margin: 0 4em 0.4em 0;
+            color: #5050b9;
+        }
+
+        #quick-help ul
+        {
+            margin: 0;
+            padding-left: 1.2em;
+        }
+
+        #quick-help li
+        {
+            margin-bottom: 0.13em;
+        }
+
+        #quick-help .help-link
+        {
+            display: block;
+            margin-top: 0.4em;
+            color: #5050b9;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div id="quick-help">
+        <button id="quick-help-toggle" title="Show/hide help" aria-label="Show/hide help">&#x25B2;</button>
+        <h3 id="quick-help-heading">Quick Help</h3>
+        <div id="quick-help-content">
+            <ul>
+                <li><b>Ctrl + Click</b> on an edge to add a point.</li>
+                <li><b>Ctrl + Drag</b> from a point to another to connect them.</li>
+                <li><b>Ctrl + Shift + Click</b> a point or line to delete it.</li>
+            </ul>
+            <a class="help-link" href="help.html" target="_blank">Full instructions</a>
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+    <script>
+        const helpBox = document.getElementById('quick-help');
+        const helpHeading = document.getElementById('quick-help-heading');
+        const toggleBtn = document.getElementById('quick-help-toggle');
+        let collapsed = false;
+
+        function updateToggle()
+        {
+            toggleBtn.innerHTML = collapsed ? '&#x25BC;' : '&#x25B2;';
+            toggleBtn.title = collapsed ? 'Show help' : 'Hide help';
+            toggleBtn.setAttribute('aria-label', toggleBtn.title);
+        }
+
+        function DoToggle(e)
+        {
+            collapsed = !collapsed;
+            helpBox.classList.toggle('collapsed', collapsed);
+            updateToggle();
+            e.stopPropagation();
+        }
+
+        toggleBtn.addEventListener('click', function (e) { DoToggle(e); });
+        helpHeading.addEventListener('click', function (e) { DoToggle(e); });
+
+        updateToggle();
+    </script>
+</body>
+</html>

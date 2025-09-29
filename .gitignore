@@ -1,0 +1,8 @@
+.vs
+node_modules
+OtherFonts
+SolutionCreation
+dist
+
+InteractiveIsosurfaceExtraction*
+package-lock.json
