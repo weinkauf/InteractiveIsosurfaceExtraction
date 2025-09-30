@@ -178,11 +178,12 @@ function CreateText()
                 Center.multiplyScalar(-1);
                 TextMesh.position.copy(Center);
 
-                //The auxilliary parent rotates to the viewer, then translates to the corner.
+                //The auxilliary parent rotates to the viewer (below in render()),
+                //then translates to the corner. See render().
                 const TextMeshParent = new THREE.Group();
                 const CornerPos = new THREE.Vector3(x, y, z);
                 CornerPos.addScalar(-0.5);
-                CornerPos.multiplyScalar(1.1);
+                TextMeshParent.userData = CornerPos;
                 TextMeshParent.position.copy(CornerPos);
                 TextMeshParent.add(TextMesh);
 
@@ -546,7 +547,7 @@ function init()
 
     //Camera
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set(2, 1, 2.5);
+    camera.position.set(1.25, 1, 2.5);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
     
@@ -579,7 +580,7 @@ function init()
     //~ controls.dampingFactor = 0.05;
     controls.enablePan = false;
     //~ controls.screenSpacePanning = false;
-    controls.minDistance = 2;
+    controls.minDistance = 2.5;
     controls.maxDistance = 5;
     controls.minPolarAngle = Math.PI / 8;
     controls.maxPolarAngle = Math.PI - Math.PI / 8;
@@ -868,7 +869,15 @@ function render()
     //The text shall face the viewer/camera.
     if (Font !== undefined) //only do this if text has been created, i.e., font has been loaded.
     {
-        VoxelValues.children.forEach(c => {c.quaternion.copy(camera.quaternion);});
+        VoxelValues.children.forEach(c =>
+        {
+            c.quaternion.copy(camera.quaternion); //rotated to face the camera
+            const CornerPos = new THREE.Vector3();
+            CornerPos.copy(c.userData); //added in CreateText()
+            CornerPos.multiplyScalar(1.2); //offset from corner point
+            CornerPos.lerp(camera.position, 0.2); //moved towards camera so that it is always seen
+            c.position.copy(CornerPos);
+        });
     }
     renderer.render(scene, camera);
 }
