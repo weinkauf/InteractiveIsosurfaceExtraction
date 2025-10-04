@@ -32,6 +32,7 @@ const VoxelValues = new THREE.Group();
 Settings["CurrentDataCube"] = 1;
 
 const CylinderThickness = 0.02;
+const CylinderSolutionThickness = 0.01;
 const SphereRadius = 0.04;
 
 ///////////// Camera, Lights, Controls, User Interaction ////////////////
@@ -105,9 +106,9 @@ const MaterialHaloPoint = new THREE.MeshPhongMaterial(
     opacity: 0.75,
     transparent: true
 });
-const MaterialUserLine = new LineMaterial({ color: 0xAAAADD, linewidth: 5 });
-const MaterialUserLineHit = new LineMaterial({ color: 0x5050b9, linewidth: 5 });
-const MaterialUserLineDel = new LineMaterial({ color: 0xb95050, linewidth: 5 });
+const MaterialUserLine = new THREE.MeshPhongMaterial({ color: 0xAAAADD });
+const MaterialUserLineHit = new THREE.MeshPhongMaterial({ color: 0x5050b9 });
+const MaterialUserLineDel = new THREE.MeshPhongMaterial({ color: 0xb95050 });
 const MaterialUserLineDrag = new LineMaterial({ color: 0x50b950, linewidth: 5, dashed: true,
 		dashSize: 2,
 		gapSize: 4
@@ -234,6 +235,32 @@ function RefreshCube()
     }
 }
 
+
+function DrawCylinder(A, B, Parent, Mat, Type)
+{
+    //Compute the direction and length of the vector between A and B
+    const Direction = new THREE.Vector3().subVectors(B, A);
+    const Length = Direction.length();
+
+    //Create a cylinder aligned with the y-axis
+    const Geometry = new THREE.CylinderGeometry(CylinderSolutionThickness, CylinderSolutionThickness, Length);
+    const Cylinder = new THREE.Mesh(Geometry, Mat);
+
+    //Center the cylinder at the midpoint between A and B
+    const MidPoint = new THREE.Vector3().addVectors(A, B).multiplyScalar(0.5);
+    Cylinder.position.copy(MidPoint);
+
+    //Align it with the direction vector
+    const Axis = new THREE.Vector3(0, 1, 0); // Y-axis
+    const Quaternion = new THREE.Quaternion().setFromUnitVectors(Axis, Direction.clone().normalize());
+    Cylinder.quaternion.copy(Quaternion);
+
+    //User Data and add to the parent
+    Cylinder.userData = {type: Type};
+    Parent.add(Cylinder);
+}
+
+
 function CreateGeometry()
 {
     //const axesHelper = new THREE.AxesHelper(1);
@@ -280,7 +307,7 @@ function CreateGeometry()
                                   TAxis3.clone().multiplyScalar(0.5)
                                  )));
 
-                Cylinder.userData = {min: MinEdgePoint, max: MaxEdgePoint};
+                Cylinder.userData = {min: MinEdgePoint, max: MaxEdgePoint, type: "box"};
                 
                 Voxel.add(Cylinder);
             }
@@ -429,7 +456,7 @@ function ComputeRegularSolutions()
         //Put the solution for this cube in a new group
         const ThisSolution = new THREE.Group();
         SolutionRegular.add(ThisSolution);
-        ThisSolution.visible = (idCube === 0);
+        ThisSolution.visible = (idCube === (Settings["CurrentDataCube"]-1));
         ThisSolution.userData = idCube;
 
         //Find intersection points with edges
@@ -476,14 +503,8 @@ function ComputeRegularSolutions()
                 {
                     const idA = f[j];
                     const idB = f[j+1];
-
-                    const Points = [];
-                    Points.push(IntersectionPoints[idA].x, IntersectionPoints[idA].y, IntersectionPoints[idA].z);
-                    Points.push(IntersectionPoints[idB].x, IntersectionPoints[idB].y, IntersectionPoints[idB].z);
-                    const LineGeo = new LineGeometry();
-                    LineGeo.setPositions(Points);
-                    const Line = new Line2(LineGeo, MaterialSolutionRegularLine);
-                    ThisSolution.add(Line);
+                    DrawCylinder(IntersectionPoints[idA], IntersectionPoints[idB],
+                                 ThisSolution, MaterialSolutionRegular, "solution");
                 }
             }
         }
@@ -496,7 +517,10 @@ function CreateUI()
 
     const gui = new GUI({title: "Interactive Isosurface Extraction"});
 
-    gui.add(Settings, "CurrentDataCube", [1, 2, 3, 4, 5, 6, 7, 8, 9])
+    //Enumeration of Data Cubes
+    let DataCubeNumbers = [...Array(DataCubes.length+1).keys()];
+    DataCubeNumbers.shift(); //1-based indexing in the UI
+    gui.add(Settings, "CurrentDataCube", DataCubeNumbers)
        .name("Example")
        .onChange(RefreshCube);
 
@@ -504,8 +528,11 @@ function CreateUI()
     gui.add(Settings, "Show Data Values")
        .onChange(value => {VoxelValues.visible = value; render();});
 
-    Settings["ResetCamera"] = function() {controls.reset();};
-    gui.add(Settings, "ResetCamera");
+    Settings["Save Screenshot"] = function() {SaveHighResImage();};
+    gui.add(Settings, "Save Screenshot");
+
+    Settings["Reset Camera"] = function() {controls.reset();};
+    gui.add(Settings, "Reset Camera");
 
     const SolutionFolder = gui.addFolder("Solution").close();
 
@@ -537,7 +564,7 @@ function CreateUI()
 function init()
 {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    scene.background = new THREE.Color(0xffffff);
 
     CreateGeometry();
     
@@ -642,9 +669,9 @@ function onPointerMove(event)
     if (AllIntersects.length > 0)
     {
         NearestHit = AllIntersects[0];
-        if (NearestHit.object.geometry instanceof THREE.CylinderGeometry) NearestType = HitType.Cylinder;
+        if (NearestHit.object.geometry instanceof THREE.CylinderGeometry && NearestHit.object.userData.type === "box") NearestType = HitType.Cylinder;
         if (NearestHit.object.geometry instanceof THREE.SphereGeometry) NearestType = HitType.UserPoint;
-        if (NearestHit.object.geometry instanceof LineGeometry) NearestType = HitType.UserLine;
+        if (NearestHit.object.geometry instanceof THREE.CylinderGeometry && NearestHit.object.userData.type === "user") NearestType = HitType.UserLine;
     }
 
 
@@ -817,13 +844,8 @@ function onPointerUp(event)
     //Add a line, if everything is well defined.
     if (DragStartPoint !== undefined && DragEndPoint !== undefined)
     {
-        const Points = [];
-        Points.push(DragStartPoint.position.x, DragStartPoint.position.y, DragStartPoint.position.z);
-        Points.push(DragEndPoint.position.x, DragEndPoint.position.y, DragEndPoint.position.z);
-        const LineGeo = new LineGeometry();
-        LineGeo.setPositions(Points);
-        const Line = new Line2(LineGeo, MaterialUserLine);
-        UserAddedLines.add(Line);
+        DrawCylinder(DragStartPoint.position, DragEndPoint.position,
+                     UserAddedLines, MaterialUserLine, "user");
     }
 
     //If the mouse pointer goes up, we end dragging in every case.
@@ -863,6 +885,37 @@ function onDocumentKeyUp(event)
     
     onPointerMove(undefined);
 }
+
+
+function SaveHighResImage(multiplier = 4)
+{
+    const originalSize = new THREE.Vector2();
+    renderer.getSize(originalSize);
+
+    const newWidth = originalSize.x * multiplier;
+    const newHeight = originalSize.y * multiplier;
+
+    // Set new (high) resolution
+    renderer.setSize(newWidth, newHeight, false);
+    camera.aspect = newWidth / newHeight;
+    camera.updateProjectionMatrix();
+
+    // Render scene
+    renderer.render(scene, camera);
+
+    // Save image
+    const link = document.createElement('a');
+    link.download = `Cube ${Settings.CurrentDataCube}.png`;
+    link.href = renderer.domElement.toDataURL('image/png');
+    link.click();
+
+    // Restore original size
+    renderer.setSize(originalSize.x, originalSize.y, false);
+    camera.aspect = originalSize.x / originalSize.y;
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+}
+
 
 function render()
 {
